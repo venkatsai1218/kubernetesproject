@@ -1,0 +1,46 @@
+name: Deploy to EC2
+
+on:
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up SSH key
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Clone Repository if Not Present
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << 'EOF'
+            if [ ! -d "/home/ubuntu/social-app-docker" ]; then
+              git clone https://github.com/saiprasadr870/social-app-docker.git /home/ubuntu/social-app-docker
+            fi
+          EOF
+
+      - name: Pull Latest Changes
+        run: |
+          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << 'EOF'
+            cd /home/ubuntu/social-app-docker
+            git pull origin main
+          EOF
+
+      - name: Stop Docker Containers
+        run: |
+          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << 'EOF'
+            cd /home/ubuntu/social-app-docker
+            sudo docker-compose down
+          EOF
+
+      - name: Start Docker Containers
+        run: |
+          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << 'EOF'
+            cd /home/ubuntu/social-app-docker
+            sudo docker-compose up --build -d
+          EOF
